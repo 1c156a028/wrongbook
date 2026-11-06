@@ -1,0 +1,27 @@
+# ===== Python =====
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# ===== 数据库（每个人本地自己生成，不进仓库）=====
+*.db
+*.sqlite3
+
+# ===== 配置与密钥（绝不提交）=====
+.env
+
+# ===== 测试与工具缓存 =====
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ===== 编辑器 =====
+.vscode/
+.idea/
+*.swp
+
+# ===== 系统垃圾 =====
+Thumbs.db
+.DS_Store
+*.log

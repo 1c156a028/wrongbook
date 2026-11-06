@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}错题列表{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">我的错题</h1>
+  <a class="btn btn-primary" href="{{ url_for('records.new_record') }}">+ 新增</a>
+</div>
+
+{% if records %}
+  <div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>标题</th>
+          <th>标签</th>
+          <th>难度</th>
+          <th>时间</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td>
+            <a href="{{ url_for('records.record_detail', record_id=r['id']) }}">{{ r['title'] }}</a>
+          </td>
+          <td>
+            {% if r['tag_names'] %}
+              {% for t in r['tag_names'].split(' / ') %}
+                <span class="badge text-bg-secondary">{{ t }}</span>
+              {% endfor %}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td class="text-warning">
+            {% for i in range(5) %}{% if i < r['difficulty'] %}★{% else %}☆{% endif %}{% endfor %}
+          </td>
+          <td class="text-muted small">{{ r['created_at'] }}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-secondary"
+               href="{{ url_for('records.record_detail', record_id=r['id']) }}">查看</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="alert alert-secondary">
+    还没有记录。点右上角「+ 新增」写第一条。
+  </div>
+{% endif %}
+{% endblock %}
