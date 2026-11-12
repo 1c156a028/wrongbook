@@ -37,8 +37,10 @@ fi
 
 echo "==> 3/6 创建虚拟环境并安装依赖"
 python3 -m venv .venv
-.venv/bin/pip install --upgrade pip -q
-.venv/bin/pip install -r requirements.txt
+# 用清华镜像加速：国内服务器直连 pypi.org 经常只有几十 KB/s
+PIP_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple
+.venv/bin/pip install --upgrade pip -q -i "$PIP_MIRROR"
+.venv/bin/pip install -r requirements.txt -i "$PIP_MIRROR"
 
 echo "==> 4/6 生成 .env（只在第一次生成）"
 if [ ! -f .env ]; then
