@@ -3,9 +3,33 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h4 mb-0">我的错题</h1>
+  <h1 class="h4 mb-0">
+    我的错题 <span class="text-muted fs-6">共 {{ records|length }} 条</span>
+  </h1>
   <a class="btn btn-primary" href="{{ url_for('records.new_record') }}">+ 新增</a>
 </div>
+
+<!-- 搜索表单：method="get"，条件会拼到网址后面 -->
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-6">
+    <input class="form-control" type="text" name="q"
+           value="{{ keyword }}" placeholder="搜标题 / 题面 / 复盘……">
+  </div>
+  <div class="col-md-3">
+    <select class="form-select" name="tag">
+      <option value="">全部标签</option>
+      {% for t in tags %}
+        <option value="{{ t['name'] }}" {% if t['name'] == current_tag %}selected{% endif %}>
+          {{ t['name'] }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3 d-flex gap-2">
+    <button class="btn btn-outline-primary flex-grow-1" type="submit">搜索</button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('records.list_records') }}">清空</a>
+  </div>
+</form>
 
 {% if records %}
   <div class="table-responsive">
@@ -48,8 +72,14 @@
     </table>
   </div>
 {% else %}
-  <div class="alert alert-secondary">
-    还没有记录。点右上角「+ 新增」写第一条。
-  </div>
+  {% if keyword or current_tag %}
+    <div class="alert alert-secondary">
+      没有符合条件的记录。换个关键词试试，或者点「清空」看全部。
+    </div>
+  {% else %}
+    <div class="alert alert-secondary">
+      还没有记录。点右上角「+ 新增」写第一条。
+    </div>
+  {% endif %}
 {% endif %}
 {% endblock %}
