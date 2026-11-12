@@ -1,0 +1,7 @@
+# 统一行尾：Windows 上编辑的脚本传到 Linux 必须用 LF，
+# 否则 bash 会因为每行末尾的 \r 报 "syntax error near unexpected token"
+*.sh   text eol=lf
+*.py   text eol=lf
+*.sql  text eol=lf
+*.html text eol=lf
+*.css  text eol=lf

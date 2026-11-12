@@ -3,9 +3,10 @@
 # 错题本 一键部署脚本
 # 适用：全新的 Ubuntu 22.04 / 24.04 云服务器，以 root 身份运行
 #
-# 用法（在服务器上执行）：
-#   curl -O https://raw.githubusercontent.com/1c156a028/wrongbook/main/deploy/setup.sh
-#   bash setup.sh
+# 用法（在服务器上以 root 执行，用 git clone 而不是 curl raw，
+# 因为国内服务器常常访问不了 raw.githubusercontent.com）：
+#   git clone https://github.com/1c156a028/wrongbook.git /tmp/wb
+#   bash /tmp/wb/deploy/setup.sh
 #
 # 它做了 6 件事：
 #   1. 装系统依赖（python3 / venv / pip / git）
