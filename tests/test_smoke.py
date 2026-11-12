@@ -104,3 +104,29 @@ def test_filter_by_unused_tag_is_empty(client):
     html = client.get("/records?tag=BFS").get_data(as_text=True)
     assert "测试记录" not in html
     assert "没有符合条件的记录" in html
+
+
+def test_stats_page_ok(client):
+    """统计页能打开，平均难度算对了（唯一一条记录难度 4）。"""
+    resp = client.get("/stats")
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert "总错题数" in html
+    assert "4.0" in html
+
+
+def test_stats_only_counts_own_records(client):
+    """统计也不能把别人的题算进来。
+
+    conftest 里 demo 有 1 条（难度 4），另一个用户有 1 条（难度 3）。
+    若权限漏了，图表数据会变成 [0, 0, 1, 1, 0]。
+    """
+    html = client.get("/stats").get_data(as_text=True).replace(" ", "")
+    assert "[0,0,0,1,0]" in html
+
+
+def test_stats_requires_login(anon_client):
+    """统计页同样受登录守卫保护。"""
+    resp = anon_client.get("/stats")
+    assert resp.status_code == 302
+    assert "/login" in resp.headers["Location"]
