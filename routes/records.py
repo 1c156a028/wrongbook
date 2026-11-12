@@ -20,14 +20,16 @@ from db import query, execute
 bp = Blueprint("records", __name__)
 
 
-# 列表页的基础 SQL：先查出"当前用户的全部记录"，搜索和筛选在后面往上加条件
+# 每页显示几条
+PER_PAGE = 5
+
+# 基础 SQL：只管"从哪些表取哪些列"，筛选条件在函数里往上加
 LIST_SQL = """
     SELECT r.id, r.title, r.difficulty, r.created_at,
            GROUP_CONCAT(t.name, ' / ') AS tag_names
     FROM records r
     LEFT JOIN record_tags rt ON rt.record_id = r.id
     LEFT JOIN tags t        ON t.id = rt.tag_id
-    WHERE r.user_id = ?
 """
 
 # 当前用户用过的所有标签，给筛选下拉框用
@@ -43,33 +45,50 @@ TAGS_SQL = """
 
 @bp.route("/records")
 def list_records():
-    """错题列表：支持关键词搜索 + 按标签筛选。"""
+    """错题列表：关键词搜索 + 标签筛选 + 分页。"""
     keyword = request.args.get("q", "").strip()
     tag = request.args.get("tag", "").strip()
 
-    sql = LIST_SQL
-    params = [session["user_id"]]  # 注意：是"列表"，因为参数个数会变
+    # ① 拼 WHERE：搜索和筛选都只影响 WHERE，先把它攒好
+    where = "WHERE r.user_id = ?"
+    params = [session["user_id"]]
 
-    # 有关键词：标题、题面、复盘 三处任意一处包含就算命中
     if keyword:
-        sql += " AND (r.title LIKE ? OR r.content LIKE ? OR r.reason LIKE ?)"
+        where += " AND (r.title LIKE ? OR r.content LIKE ? OR r.reason LIKE ?)"
         like = f"%{keyword}%"
         params += [like, like, like]
 
-    # 有标签：这条记录必须挂了这个标签
     if tag:
-        sql += """ AND EXISTS (
-                       SELECT 1
-                       FROM record_tags rt2
-                       JOIN tags t2 ON t2.id = rt2.tag_id
-                       WHERE rt2.record_id = r.id AND t2.name = ?
-                   )"""
+        where += """ AND EXISTS (
+                        SELECT 1
+                        FROM record_tags rt2
+                        JOIN tags t2 ON t2.id = rt2.tag_id
+                        WHERE rt2.record_id = r.id AND t2.name = ?
+                    )"""
         params.append(tag)
 
-    # GROUP BY 和 ORDER BY 必须放在最后：所有 WHERE 条件都加完了才能收尾
-    sql += " GROUP BY r.id ORDER BY r.created_at DESC, r.id DESC"
+    # ② 先数一共几条（用同样的 where，数的是"筛选后的结果"）
+    total = query(f"SELECT COUNT(*) AS c FROM records r {where}", params, one=True)["c"]
 
-    records = query(sql, params)
+    # ③ 算总页数：向上取整。7 条、每页 5 条 → (7+4)//5 = 2 页
+    total_pages = (total + PER_PAGE - 1) // PER_PAGE if total else 1
+
+    # ④ 当前第几页：从网址里取 ?page=2；越界就夹回合法范围
+    page = request.args.get("page", 1, type=int) or 1
+    if page < 1:
+        page = 1
+    if page > total_pages:
+        page = total_pages
+    offset = (page - 1) * PER_PAGE
+
+    # ⑤ 取这一页的数据：LIMIT 取几条，OFFSET 跳过前面几条
+    sql = (
+        LIST_SQL
+        + where
+        + " GROUP BY r.id ORDER BY r.created_at DESC, r.id DESC LIMIT ? OFFSET ?"
+    )
+    records = query(sql, params + [PER_PAGE, offset])
+
     tags = query(TAGS_SQL, (session["user_id"],))
     return render_template(
         "record_list.html",
@@ -77,6 +96,9 @@ def list_records():
         tags=tags,
         keyword=keyword,
         current_tag=tag,
+        total=total,
+        page=page,
+        total_pages=total_pages,
     )
 
 

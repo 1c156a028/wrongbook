@@ -130,3 +130,41 @@ def test_stats_requires_login(anon_client):
     resp = anon_client.get("/stats")
     assert resp.status_code == 302
     assert "/login" in resp.headers["Location"]
+
+
+def test_pagination_splits_pages(app, client):
+    """7 条记录、每页 5 条 → 2 页。"""
+    import sqlite3
+
+    conn = sqlite3.connect(app.config["DATABASE"])
+    for i in range(6):  # 加上 conftest 里的 1 条，正好 7 条
+        conn.execute(
+            "INSERT INTO records (user_id, title, difficulty) VALUES (1, ?, 3)",
+            (f"分页测试{i}",),
+        )
+    conn.commit()
+    conn.close()
+
+    page1 = client.get("/records").get_data(as_text=True)
+    assert "共 7 条" in page1
+    assert "page=2" in page1            # 有第 2 页的链接
+    # 最早的"测试记录"排在最后 → 应该在第 2 页，不该出现在第 1 页
+    assert "测试记录" not in page1
+
+    page2 = client.get("/records?page=2").get_data(as_text=True)
+    assert "测试记录" in page2
+
+
+def test_pagination_clamps_out_of_range_page(client):
+    """?page=99 不该报错，而是夹回最后一页。"""
+    resp = client.get("/records?page=99")
+    assert resp.status_code == 200
+    assert "共 1 条" in resp.get_data(as_text=True)
+
+
+def test_pagination_keeps_search_keyword(client):
+    """翻页链接里必须带着 q，否则一翻页搜索条件就丢了。"""
+    html = client.get("/records?q=测试").get_data(as_text=True)
+    assert "共 1 条" in html
+    # 只有 1 页时不该渲染分页条
+    assert "pagination" not in html
