@@ -3,9 +3,9 @@
 已完成：列表页、详情页（这是"读"的完整链路，先看懂这两条再动手写"写"）
 待实现：新增、编辑、删除
 """
-from flask import Blueprint, abort, render_template
+from flask import Blueprint, abort, render_template,request,flash,redirect,url_for
 
-from db import query
+from db import query,execute
 
 bp = Blueprint("records", __name__)
 
@@ -63,34 +63,101 @@ def record_detail(record_id):
 # 下面是还没实现的部分。保持"能跑"，点进去会看到一张说明页。
 # ---------------------------------------------------------------------------
 
-@bp.route("/records/new")
+@bp.route("/records/new",methods=["GET","POST"])
 def new_record():
-    return render_template(
-        "placeholder.html",
-        title="新增错题",
-        steps=[
-            "GET 时显示表单：用 record_form.html，mode='create'",
-            "POST 时读 request.form 里的字段",
-            "校验：title 不能为空，difficulty 必须是 1~5",
-            "INSERT INTO records (...) 后拿到 lastrowid",
-            "处理标签：按名字查 tags，没有就插入，再写 record_tags",
-            "flash 一句提示，redirect 回列表页（PRG 模式，防止刷新重复提交）",
-        ],
-    )
+    if request.method == "POST":
+        title = request.form.get("title")
+        #TODO:这里要做表单验证，title不能为空，难度要在1~5之间，tags要拆成列表
+        content = request.form.get("content")
+        code = request.form.get("code")
+        reason = request.form.get("reason")
+        difficulty = int(request.form.get("difficulty",3))
+        tags = request.form.get("tags")
+        
+        if not title:
+            flash("标题不能为空","danger")
+            return redirect(url_for("records.new_record"))
+        
+                    # ③ 写库：只留一次，把新记录的 id 接住
+        record_id = execute(
+            """INSERT INTO records(user_id,title,content,code,reason,difficulty)
+            VALUES(?,?,?,?,?,?)""",
+            (DEMO_USER_ID,title,content,code,reason,difficulty)
+        )
+
+        # ③.5 处理标签
+        tags_names = [t.strip() for t in (tags or "").split(",") if t.strip()]
+        tags_names = list(set(tags_names))          # 去重，防止 DP,DP 撞主键
+
+        for name in tags_names:
+            row = query("SELECT id FROM tags WHERE name = ?", (name,), one=True)
+            if row:
+                tag_id = row["id"]                  # 有，直接用
+            else:
+                tag_id = execute("INSERT INTO tags (name) VALUES (?)", (name,))
+            execute(
+                "INSERT INTO record_tags (record_id, tag_id) VALUES (?, ?)",
+                (record_id, tag_id),
+            )
+
+        flash("保存成功")
+        return redirect(url_for("records.list_records"))
+
+        return render_template("record_form.html", record=None, tags_text="")
 
 
-@bp.route("/records/<int:record_id>/edit")
+@bp.route("/records/<int:record_id>/edit", methods=["GET", "POST"])
 def edit_record(record_id):
-    return render_template(
-        "placeholder.html",
-        title="编辑错题",
-        steps=[
-            "先按 id + user_id 查出记录，查不到就 abort(404)",
-            "GET 时把记录填进表单（value 用 record['title'] 等）",
-            "POST 时 UPDATE records SET ... WHERE id = ? AND user_id = ?",
-            "别忘了 WHERE 里也要带 user_id，否则能改别人的数据",
-        ],
-    )
+    record = query("SELECT * FROM records WHERE id = ? AND user_id = ?",
+                   (record_id,DEMO_USER_ID), one =True)
+    if record is None:
+        abort(404)
+
+    if request.method == "POST":
+        title = request.form.get("title")
+        content = request.form.get("content")
+        code = request.form.get("code")
+        reason = request.form.get("reason")
+        difficulty = int(request.form.get("difficulty",3))
+        tags = request.form.get("tags")
+
+        if not title:
+            flash("标题不能为空","danger")
+            return redirect(url_for("records.edit_record",record_id=record_id))
+        
+        # 先把标签拆好（放在 DELETE 之前，万一出错也不会丢数据）
+        tags_names = [t.strip() for t in (tags or "").split(",") if t.strip()]
+        tags_names = list(set(tags_names))         # 去重，防止 DP,DP 撞主键
+
+        # 改记录本身（SET 说的是"改哪些字段"，WHERE 说的是"改哪一行"）
+        execute(
+            """UPDATE records
+               SET title = ?, content = ?, code = ?, reason = ?, difficulty = ?
+               WHERE id = ? AND user_id = ?""",
+            (title, content, code, reason, difficulty, record_id, DEMO_USER_ID)
+        )
+       
+        execute("DELETE FROM record_tags WHERE record_id = ?",(record_id,))
+        for name in tags_names:
+            row = query("SELECT id FROM tags WHERE name = ?", (name,), one=True)
+            if row:
+                tag_id = row["id"]                  # 有，直接用
+            else:
+                tag_id = execute("INSERT INTO tags (name) VALUES (?)", (name,))
+            execute(
+                "INSERT INTO record_tags (record_id,tag_id)VALUES(?,?)",
+                (record_id,tag_id)
+            )
+
+        flash("修改成功")
+        return redirect(url_for("records.list_records"))
+
+        # GET：把原来的标签拼成字符串，传给模板
+    rows = query("""SELECT t.name FROM tags t
+                    JOIN record_tags rt ON rt.tag_id = t.id
+                    WHERE rt.record_id = ?""", (record_id,))
+    tags_text = ", ".join(r["name"] for r in rows)
+    return render_template("record_form.html", record=record, tags_text=tags_text)
 
 
 @bp.route("/records/<int:record_id>/delete", methods=["POST"])

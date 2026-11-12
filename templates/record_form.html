@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{'编辑错题' if record else '新增错题'}}{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-3">{{'编辑错题' if record else '新增错题'}}</h1>
+
+<form method="post" class="card p-4 shadow-sm">
+  <div class="mb-3">
+    <label class="form-label">标题</label>
+    <input name="title" class="form-control" required
+           value="{{record['title']if record else ''}}">
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">题面 / 思路</label>
+    <textarea name="content" rows="3" class="form-control">{{record['content']if record else ''}}</textarea>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">我写的代码</label>
+    <textarea name="code" rows="6" class="form-control">{{record['code']if record else ''}}</textarea>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">为什么错 / 怎么改</label>
+    <textarea name="reason" rows="3" class="form-control">{{record['reason'] if record else ''}}</textarea>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">难度</label>
+    <select name="difficulty" class="form-select">
+      {% for i in range(1, 6) %}
+  <option value="{{ i }}" {% if record and record['difficulty'] == i %}selected{% endif %}>{{ i }} 星</option>
+{% endfor %}
+    </select>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">标签（逗号分隔）</label>
+    <input name="tags" class="form-control" placeholder="DP, 二分" value="{{ tags_text }}">
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary">保存</button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('records.list_records') }}">取消</a>
+  </div>
+</form>
+{% endblock %}
