@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}注册{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5 col-lg-4">
+    <h1 class="h4 mb-4">注册</h1>
+
+    <form method="post">
+      <div class="mb-3">
+        <label class="form-label" for="username">用户名</label>
+        <input class="form-control" id="username" name="username" required>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="password">密码（至少 6 位）</label>
+        <input class="form-control" id="password" name="password" type="password" required>
+      </div>
+
+      <button class="btn btn-primary" type="submit">注册</button>
+      <a class="btn btn-link" href="{{ url_for('auth.login') }}">已有账号，去登录</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -3,6 +3,7 @@
 作用：每个测试都在一个"全新的临时数据库"上跑，
 互不影响，也不会碰你本地的 wrongbook.db。
 """
+
 import sqlite3
 from pathlib import Path
 
@@ -60,5 +61,19 @@ def app(tmp_path):
 
 @pytest.fixture
 def client(app):
-    """模拟浏览器的客户端。"""
+    """模拟"已登录"的浏览器（demo 用户，id=1）。
+
+    session_transaction() 让我们能直接改 session，
+    相当于跳过了"输入密码点登录"这一步。
+    """
+    c = app.test_client()
+    with c.session_transaction() as sess:
+        sess["user_id"] = 1
+        sess["username"] = "demo"
+    return c
+
+
+@pytest.fixture
+def anon_client(app):
+    """模拟"没登录"的浏览器，专门用来测守卫。"""
     return app.test_client()

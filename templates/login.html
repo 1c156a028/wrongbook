@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}登录{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5 col-lg-4">
+    <h1 class="h4 mb-4">登录</h1>
+
+    <form method="post">
+      <div class="mb-3">
+        <label class="form-label" for="username">用户名</label>
+        <input class="form-control" id="username" name="username" required>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="password">密码</label>
+        <input class="form-control" id="password" name="password" type="password" required>
+      </div>
+
+      <button class="btn btn-primary" type="submit">登录</button>
+      <a class="btn btn-link" href="{{ url_for('auth.register') }}">没有账号？去注册</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

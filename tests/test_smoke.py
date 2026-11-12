@@ -52,3 +52,16 @@ def test_unknown_url_returns_404(client):
     """随便输一个地址也有友好页面，而不是白屏。"""
     resp = client.get("/this-page-does-not-exist")
     assert resp.status_code == 404
+
+
+def test_anonymous_redirected_to_login(anon_client):
+    """没登录访问列表页，应该被踢到登录页。"""
+    resp = anon_client.get("/records")
+    assert resp.status_code == 302
+    assert "/login" in resp.headers["Location"]
+
+
+def test_login_page_is_public(anon_client):
+    """登录页本身必须不用登录就能打开，否则死循环。"""
+    resp = anon_client.get("/login")
+    assert resp.status_code == 200

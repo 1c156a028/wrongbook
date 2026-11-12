@@ -40,6 +40,12 @@
 <div class="d-flex gap-2">
   <a class="btn btn-outline-secondary"
    href="{{ url_for('records.edit_record', record_id=record['id']) }}">编辑</a>
-  <button class="btn btn-outline-danger" disabled>删除（待实现）</button>
+
+  <form method="post"
+        class="m-0"
+        action="{{url_for('records.delete_record',record_id=record['id'])}}"
+        onsubmit="return confirm('确定要删除这条记录吗？');">
+  <button type="submit" class="btn btn-outline-danger">删除</button>
+  </form>
 </div>
 {% endblock %}

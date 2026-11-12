@@ -3,15 +3,13 @@
 已完成：列表页、详情页（这是"读"的完整链路，先看懂这两条再动手写"写"）
 待实现：新增、编辑、删除
 """
-from flask import Blueprint, abort, render_template,request,flash,redirect,url_for
+from flask import Blueprint, abort, render_template,request,session,flash,redirect,url_for
 
 from db import query,execute
 
 bp = Blueprint("records", __name__)
 
-# 临时写死：登录功能做完后，这里要改成从 session 里取当前用户
-# TODO(D10~D11): 换成 session["user_id"]，并在取不到时跳转登录页
-DEMO_USER_ID = 1
+
 
 # 列表页要查的 SQL。拆出来单独放，方便你在 sqlite 工具里直接试
 LIST_SQL = """
@@ -29,7 +27,7 @@ LIST_SQL = """
 @bp.route("/records")
 def list_records():
     """错题列表：查出当前用户的所有记录，交给模板渲染。"""
-    records = query(LIST_SQL, (DEMO_USER_ID,))
+    records = query(LIST_SQL, (session["user_id"],))
     return render_template("record_list.html", records=records)
 
 
@@ -42,7 +40,7 @@ def record_detail(record_id):
     """
     record = query(
         "SELECT * FROM records WHERE id = ? AND user_id = ?",
-        (record_id, DEMO_USER_ID),
+        (record_id, session["user_id"]),
         one=True,
     )
     if record is None:
@@ -82,7 +80,7 @@ def new_record():
         record_id = execute(
             """INSERT INTO records(user_id,title,content,code,reason,difficulty)
             VALUES(?,?,?,?,?,?)""",
-            (DEMO_USER_ID,title,content,code,reason,difficulty)
+            (session["user_id"],title,content,code,reason,difficulty)
         )
 
         # ③.5 处理标签
@@ -109,7 +107,7 @@ def new_record():
 @bp.route("/records/<int:record_id>/edit", methods=["GET", "POST"])
 def edit_record(record_id):
     record = query("SELECT * FROM records WHERE id = ? AND user_id = ?",
-                   (record_id,DEMO_USER_ID), one =True)
+                   (record_id,session["user_id"]), one =True)
     if record is None:
         abort(404)
 
@@ -134,7 +132,7 @@ def edit_record(record_id):
             """UPDATE records
                SET title = ?, content = ?, code = ?, reason = ?, difficulty = ?
                WHERE id = ? AND user_id = ?""",
-            (title, content, code, reason, difficulty, record_id, DEMO_USER_ID)
+            (title, content, code, reason, difficulty, record_id, session["user_id"])
         )
        
         execute("DELETE FROM record_tags WHERE record_id = ?",(record_id,))
@@ -162,13 +160,13 @@ def edit_record(record_id):
 
 @bp.route("/records/<int:record_id>/delete", methods=["POST"])
 def delete_record(record_id):
-    return render_template(
-        "placeholder.html",
-        title="删除错题",
-        steps=[
-            "只接受 POST（这里 methods 已经限定了），不要用 <a> 链接删",
-            "DELETE FROM records WHERE id = ? AND user_id = ?",
-            "record_tags 靠外键 ON DELETE CASCADE 自动清理",
-            "删除后 flash + redirect 回列表",
-        ],
-    )
+    record = query("SELECT * FROM records WHERE id = ? AND user_id = ?",
+                   (record_id, session["user_id"]), one=True)
+    if record is None:
+        abort(404)
+
+    execute("DELETE FROM records WHERE id = ? AND user_id = ?",
+            (record_id, session["user_id"]))
+
+    flash("已删除")
+    return redirect(url_for("records.list_records"))
