@@ -15,6 +15,9 @@ from flask import (
     url_for,
 )
 
+import json
+
+import ai
 from db import query, execute
 
 bp = Blueprint("records", __name__)
@@ -125,7 +128,60 @@ def record_detail(record_id):
            ORDER BY t.name""",
         (record_id,),
     )
-    return render_template("record_detail.html", record=record, tags=tags)
+    # AI 诊断结果在库里存的是 JSON 字符串，取出来先解析成 dict 给模板用。
+    # 解析失败（比如历史脏数据）就当没诊断过，绝不让页面 500。
+    analysis = None
+    if record["ai_analysis"]:
+        try:
+            analysis = json.loads(record["ai_analysis"])
+        except ValueError:
+            analysis = None
+        if not isinstance(analysis, dict):  # 万一存成了别的 JSON，也当没诊断过
+            analysis = None
+
+    return render_template(
+        "record_detail.html",
+        record=record,
+        tags=tags,
+        analysis=analysis,
+        ai_ready=ai.is_configured(),
+    )
+
+
+@bp.route("/records/<int:record_id>/analyze", methods=["POST"])
+def analyze_record(record_id):
+    """点【AI 诊断】：调用大模型分析这道错题，结果存回库里再跳回详情页。
+
+    为什么要存库？因为 API 要花钱、要等几秒。
+    存下来以后每次打开详情页直接读，不再重复调模型。
+    """
+    record = query(
+        "SELECT * FROM records WHERE id = ? AND user_id = ?",
+        (record_id, session["user_id"]),
+        one=True,
+    )
+    if record is None:
+        abort(404)
+
+    if not ai.is_configured():
+        flash("还没有配置 AI 密钥，暂时用不了这个功能", "warning")
+        return redirect(url_for("records.record_detail", record_id=record_id))
+
+    result = ai.analyze_record(
+        record["title"], record["content"], record["code"], record["reason"]
+    )
+
+    if result is None:
+        # ai.py 里已经把异常吞掉了，这里只需要给用户一句人话
+        flash("AI 分析失败了，过一会儿再试一次", "danger")
+    else:
+        execute(
+            "UPDATE records SET ai_analysis = ? WHERE id = ? AND user_id = ?",
+            (json.dumps(result, ensure_ascii=False), record_id, session["user_id"]),
+        )
+        flash("AI 诊断完成", "success")
+
+    return redirect(url_for("records.record_detail", record_id=record_id))
 
 
 # ---------------------------------------------------------------------------

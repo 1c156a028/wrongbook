@@ -168,3 +168,83 @@ def test_pagination_keeps_search_keyword(client):
     assert "共 1 条" in html
     # 只有 1 页时不该渲染分页条
     assert "pagination" not in html
+
+
+# ---------------------------------------------------------------------------
+# AI 诊断
+#
+# 注意：测试里绝对不能真的去调 API——又慢又要钱，而且网络一断测试就红。
+# 做法是用 monkeypatch 把 ai.analyze_record 换成一个假的函数。
+# ---------------------------------------------------------------------------
+
+
+def test_analyze_requires_login(anon_client):
+    """没登录不能触发分析。"""
+    resp = anon_client.post("/records/1/analyze")
+    assert resp.status_code == 302
+    assert "/login" in resp.headers["Location"]
+
+
+def test_analyze_cannot_touch_other_users_record(client):
+    """别人的记录不能分析（id=2 属于 user 99）。"""
+    resp = client.post("/records/2/analyze")
+    assert resp.status_code == 404
+
+
+def test_analyze_saves_and_shows_result(client, monkeypatch):
+    """分析成功后：结果存进库，再打开详情页能看到。"""
+    import ai
+
+    fake = {
+        "subject": "算法",
+        "language": "C++",
+        "error_point": "假错误点",
+        "why": "假原因",
+        "fix": "假改法",
+        "tags": ["假标签"],
+        "difficulty": 3,
+    }
+    monkeypatch.setattr(ai, "analyze_record", lambda *a, **k: fake)
+    monkeypatch.setattr(ai, "is_configured", lambda: True)
+
+    resp = client.post("/records/1/analyze", follow_redirects=True)
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert "假错误点" in html
+    assert "假改法" in html
+    assert "AI 诊断完成" in html
+
+    # 确认真的写进了数据库
+    from db import query
+
+    with client.application.app_context():
+        row = query("SELECT ai_analysis FROM records WHERE id = 1", one=True)
+    assert row["ai_analysis"] is not None
+    assert "假错误点" in row["ai_analysis"]
+
+
+def test_analyze_failure_does_not_crash(client, monkeypatch):
+    """模型挂了（返回 None）也不能 500，只给一句提示。"""
+    import ai
+
+    monkeypatch.setattr(ai, "analyze_record", lambda *a, **k: None)
+    monkeypatch.setattr(ai, "is_configured", lambda: True)
+
+    resp = client.post("/records/1/analyze", follow_redirects=True)
+    assert resp.status_code == 200
+    assert "AI 分析失败" in resp.get_data(as_text=True)
+
+
+def test_analyze_without_key_is_disabled(client, monkeypatch):
+    """没配 key 时按钮不出现，硬发请求也只提示、不调模型。"""
+    import ai
+
+    monkeypatch.setattr(ai, "is_configured", lambda: False)
+
+    html = client.get("/records/1").get_data(as_text=True)
+    assert "让 AI 看看" not in html
+    assert "没有配置 AI 密钥" in html
+
+    resp = client.post("/records/1/analyze", follow_redirects=True)
+    assert resp.status_code == 200
+    assert "暂时用不了这个功能" in resp.get_data(as_text=True)

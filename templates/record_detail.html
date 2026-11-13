@@ -37,6 +37,39 @@
   </div>
 </div>
 
+<div class="card mb-3 border-info">
+  <div class="card-header bg-info-subtle d-flex justify-content-between align-items-center">
+    <span>🤖 AI 诊断</span>
+    {% if ai_ready %}
+      <form method="post" class="m-0"
+            action="{{ url_for('records.analyze_record', record_id=record['id']) }}">
+        <button type="submit" class="btn btn-sm btn-info">
+          {{ '重新诊断' if analysis else '让 AI 看看' }}
+        </button>
+      </form>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    {% if analysis %}
+      <p class="mb-2"><strong>真正的错误：</strong>{{ analysis.get('error_point', '（无）') }}</p>
+      <p class="mb-2"><strong>为什么会错：</strong>{{ analysis.get('why', '（无）') }}</p>
+      <p class="mb-2"><strong>怎么改：</strong>{{ analysis.get('fix', '（无）') }}</p>
+      <p class="mb-0">
+        {% for t in analysis.get('tags', []) %}
+          <span class="badge text-bg-info">{{ t }}</span>
+        {% endfor %}
+        <span class="text-muted small ms-2">
+          {{ analysis.get('subject', '') }} · {{ analysis.get('language', '') }}
+        </span>
+      </p>
+    {% elif ai_ready %}
+      <p class="text-muted mb-0">还没有诊断过，点右上角按钮让 AI 看一眼。</p>
+    {% else %}
+      <p class="text-muted mb-0">没有配置 AI 密钥，这个功能暂时不可用。</p>
+    {% endif %}
+  </div>
+</div>
+
 <div class="d-flex gap-2">
   <a class="btn btn-outline-secondary"
    href="{{ url_for('records.edit_record', record_id=record['id']) }}">编辑</a>

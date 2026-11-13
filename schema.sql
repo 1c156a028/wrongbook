@@ -31,6 +31,7 @@ CREATE TABLE records (
     difficulty INTEGER NOT NULL DEFAULT 3
                CHECK (difficulty BETWEEN 1 AND 5),  -- 难度 1~5
     created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+    ai_analysis TEXT,                               -- AI 诊断结果（JSON 字符串，NULL = 没诊断过）
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
